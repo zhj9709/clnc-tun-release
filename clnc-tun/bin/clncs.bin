@@ -225,7 +225,6 @@ data_control() {
 make_config() {
 echo 'tcp::Global {
     tcp_listen = 0.0.0.0:1230;
-    timeout = 60;
 }
 
 dns::Global {
@@ -247,7 +246,7 @@ fi
 echo '}
 
 tcpProxy::https_proxy {
-    destAddr = '$addr';
+    destAddr4 = '$addr';
     tunnel_encrypt = '$clncpwd';
     tunnel_proxy = on;
     tunnelHttpMod = clns_https_request;
@@ -261,7 +260,7 @@ tcpAcl::firstConnect {
 }
 
 dnsAcl {
-    destAddr = '$addr';
+    destAddr4 = '$addr';
     header_host = '$DNS':53;
     lookup_mode = tcpDNS;
     tunnel_encrypt = '$clncpwd';
@@ -272,7 +271,7 @@ dnsAcl {
 httpUDP::udp {
     udp_tproxy_listen = 0.0.0.0:1230;
     header_host = '$host';
-    destAddr = '$addr';
+    destAddr4 = '$addr';
     encrypt = '$clncpwd';
     udp_flag = '$udpflag';
     httpMod = clns_https_request;
