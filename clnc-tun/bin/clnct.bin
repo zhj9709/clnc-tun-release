@@ -2,7 +2,7 @@
 
 #全局变量设置(默认参数)
 #可以通过配置文件设置
-TunDev=ctun
+TunDev=tunx
 #免udp(0=关闭,1=开启,2=放行)
 mudp=1
 #IPV6禁网
@@ -93,18 +93,20 @@ start_rules() {
   [ "$wifiProxy" = "1" ] || iptables -t mangle -A man_OUT -o wlan+ -j ACCEPT
   [ "$mudp" = "0" ] && iptables -t mangle -A man_OUT -p udp -j DROP
   [ "$mudp" = "2" ] && iptables -t mangle -A man_OUT -p udp -j ACCEPT
+  [ "$icmp" = "1" ] && iptables -t mangle -A man_OUT -p icmp -j ACCEPT
   iptables -t mangle -A man_OUT -j MARK --set-xmark 0x1234
   iptables -t mangle -I OUTPUT -j man_OUT
   # PREROUTING 共享规则
   iptables -t mangle -A man_PRE -j TUN_MARK
   [ "$mudp" = "0" ] && iptables -t mangle -A man_PRE -p udp -j DROP
   [ "$mudp" = "2" ] && iptables -t mangle -A man_PRE -p udp -j ACCEPT
+  [ "$icmp" = "1" ] && iptables -t mangle -A man_PRE -p icmp -j ACCEPT
   iptables -t mangle -A man_PRE -s 192.168/16 -j MARK --set-xmark 0x1234
   iptables -t mangle -I PREROUTING -j man_PRE
   
   iptables -N CFF
-  iptables -A CFF -i $TunDev -j ACCEPT
-  iptables -A CFF -o $TunDev -j ACCEPT
+  iptables -I CFF -i $TunDev -j ACCEPT
+  iptables -I CFF -o $TunDev -j ACCEPT
   iptables -I FORWARD -j CFF
 
   # IPV6禁网
@@ -165,6 +167,15 @@ data_control() {
 }
 
 make_config() {
+if echo $method | grep -q ":"; then
+  param1=${method%:*}
+  param2=${method#*:}
+else
+  param1=$method
+fi
+
+[ -n "$param2" ] && tls_client='\n    tls_client = '$host'';
+
 echo 'tcp::Global {
 }
 
@@ -174,15 +185,15 @@ dns::Global {
 
 httpMod::clns_https_request {
     del_line = host;' > bin/clnc.conf
-if [ "$method" == "GET" -o "$method" == "POST" ]; then
+if [ "$param1" == "GET" -o "$param1" == "POST" ]; then
 echo -E '    //伪装成GET,POST，必须包含ClnsProxyType: TUNNEL_PROXY
-    set_first = "'$method' '$path' [V]\r\nHost: '$host'\r\n'$clnchead': [H]\r\nClnsProxyType: TUNNEL_PROXY\r\n";' >> bin/clnc.conf
+    set_first = "'$param1' '$path' [V]\r\nHost: '$host'\r\n'$clnchead': [H]\r\nClnsProxyType: TUNNEL_PROXY\r\n";' >> bin/clnc.conf
 fi
-if [ "$method" == "CONNECT" ]; then
+if [ "$param1" == "CONNECT" ]; then
 echo -E '    //伪装成CONNECT，只有CONNECT不需要ClnsProxyType: TUNNEL_PROXY
     set_first = "CONNECT '$path' [V]\r\nHost: '$host'\r\n'$clnchead': [H]\r\n";' >> bin/clnc.conf
 fi
-if [ "$method" == "WS" -o "$method" == "ws" ]; then
+if [ "$param1" == "WS" -o "$param1" == "ws" ]; then
 echo -E '    //伪装成WS，必须包含ClnsProxyType: TUNNEL_PROXY
     set_first = "GET /ws HTTP/1.1\r\nHost: '$host'\r\n'$clnchead': [H]\r\nConnection: Upgrade\r\nSec-WebSocket-Key: Cute Linux Network\r\nSec-WebSocket-Version: 13\r\nUpgrade: websocket\r\nOrigin: http://'$host'/\r\nClnsProxyType: TUNNEL_PROXY\r\n";'>> bin/clnc.conf
 fi
@@ -190,7 +201,7 @@ echo '}
 
 tcpProxy::https_proxy {
     destAddr4 = '$addr';
-    tunnel_encrypt = '$clncpwd';
+    tunnel_encrypt = '$clncpwd';'"$tls_client"'
     tunnel_proxy = on;
     tunnelHttpMod = clns_https_request;
 }
@@ -205,7 +216,7 @@ dnsAcl {
     destAddr4 = '$addr';
     header_host = '$DNS':53;
     lookup_mode = tcpDNS;
-    tunnel_encrypt = '$clncpwd';
+    tunnel_encrypt = '$clncpwd';'"$tls_client"'
     tunnelHttpMod = clns_https_request;
     tunnel_proxy = on;
 }
@@ -214,7 +225,7 @@ httpUDP::udp {
     header_host = '$host';
     destAddr4 = '$addr';
     encrypt = '$clncpwd';
-    udp_flag = '$udpflag';
+    udp_flag = '$udpflag';'"$tls_client"'
     httpMod = clns_https_request;
 }
 
