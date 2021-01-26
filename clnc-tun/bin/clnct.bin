@@ -77,8 +77,7 @@ start_rules() {
   ip route add default dev $TunDev table 1234
   # 防跳
   iptables -t mangle -N TUN_MARK
-  allow_ip="0/8,127/8,10/8,192.168/16,224/3,169.254/16,100.64/10,172.16/12"
-  #allow_ip="0.0.0.0/8,100.64.0.0/10,127.0.0.0/8,169.254.0.0/16,192.0.0.0/24,192.0.2.0/24,192.88.99.0/24,198.18.0.0/15,198.51.100.0/24,203.0.113.0/24,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,224.0.0.0/3"
+  allow_ip="10/8,100/8,127/8,169.254/16,172.16/12,192/24,192.168/16,224/4,240/4"
 
   iptables -t mangle -A TUN_MARK -d $allow_ip -j ACCEPT
 
@@ -174,7 +173,7 @@ else
   param1=$method
 fi
 
-[ -n "$param2" ] && tls_client='\n    tls_client = '$host'';
+[ "$param2" = "tls" ] && tls_client='\n    tls_client = '$host'';
 
 echo 'tcp::Global {
 }
