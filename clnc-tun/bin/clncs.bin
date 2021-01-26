@@ -126,7 +126,7 @@ start_rules() {
     iptables -t mangle -N man_PRE
     iptables -t mangle -A PREROUTING -j man_PRE
     # PREROUTING
-    allow_ip="0/8,127/8,10/8,192.168/16,224/3,169.254/16,100.64/10,172.16/12"
+    allow_ip="10/8,100/8,127/8,169.254/16,172.16/12,192/24,192.168/16,224/4,240/4"
     iptables -t mangle -A man_PRE -d $allow_ip -j ACCEPT
     # OUTPUT
     iptables -t mangle -A man_OUT -m owner --gid-owner 2222 -j ACCEPT
@@ -199,7 +199,7 @@ start_rules() {
 get_ip() {
   server=${addr%:*}
   if echo $server | grep -q [a-zA-Z]; then
-    ip=`busybox timeout 1 busybox wget -q -T1 -O- http://119.29.29.29/d?dn=$server | busybox cut -d';' -f1`
+    ip=`busybox wget -qO- -T1 http://119.29.29.29/d?dn=$server 2>/dev/null | busybox cut -d';' -f1`
     echo $ip | grep -q '\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}' || ip=""
     if [ -z "$ip" ]; then
       ip=`ping -c1 -w1 -W1 $server | grep 'PING' | busybox cut -d'(' -f2 |  busybox cut -d')' -f1`
@@ -230,7 +230,7 @@ else
   param1=$method
 fi
 
-[ -n "$param2" ] && tls_client='\n    tls_client = '$host'';
+[ "$param2" = "tls" ] && tls_client='\n    tls_client = '$host'';
 
 echo 'tcp::Global {
     tcp_listen = 0.0.0.0:1230;
